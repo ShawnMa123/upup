@@ -374,6 +374,41 @@ def edit_target(id):
     
     return render_template('edit_target.html', target=target)
 
+@app.route('/target/<int:id>')
+@login_required
+def target_detail(id):
+    target = MonitorTarget.query.get(id)
+    if not target:
+        return redirect(url_for('manage_targets'))
+    
+    # 获取最近24小时的监控记录
+    logs = MonitorLog.query.filter(
+        MonitorLog.target_id == id,
+        MonitorLog.timestamp >= db.func.datetime('now', '-1 day')
+    ).order_by(MonitorLog.timestamp.asc()).all()
+    
+    return render_template('target_detail.html', target=target, logs=logs)
+
+@app.route('/api/target/<int:id>/history')
+@login_required
+def target_history(id):
+    # 获取最近24小时的监控记录
+    logs = MonitorLog.query.filter(
+        MonitorLog.target_id == id,
+        MonitorLog.timestamp >= db.func.datetime('now', '-1 day')
+    ).order_by(MonitorLog.timestamp.asc()).all()
+    
+    # 准备图表数据
+    timestamps = [log.timestamp.strftime('%Y-%m-%d %H:%M') for log in logs]
+    response_times = [log.response_time if log.response_time else 0 for log in logs]
+    statuses = [log.status for log in logs]
+    
+    return {
+        'timestamps': timestamps,
+        'response_times': response_times,
+        'statuses': statuses
+    }
+
 @app.route('/target/delete/<int:id>')
 @login_required
 def delete_target(id):

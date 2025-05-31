@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ target.name }} - 监控详情</h1>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">基本信息</h5>
+            <p><strong>类型:</strong> {{ target.target_type | upper }}</p>
+            <p><strong>目标:</strong> {{ target.target }}</p>
+            <p><strong>状态:</strong> 
+                {% if target.status == 'up' %}
+                <span class="badge bg-success">正常</span>
+                {% elif target.status == 'down' %}
+                <span class="badge bg-danger">故障</span>
+                {% else %}
+                <span class="badge bg-secondary">未知</span>
+                {% endif %}
+            </p>
+            <p><strong>最后检查:</strong> {{ target.last_checked }}</p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">响应时间趋势 (最近24小时)</h5>
+            <canvas id="responseTimeChart" height="100"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // 获取监控历史数据
+    fetch("{{ url_for('target_history', id=target.id) }}")
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('responseTimeChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: '响应时间 (ms)',
+                        data: data.response_times,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '响应时间 (ms)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间'
+                            }
+                        }
+                    }
+                }
+            });
+        });
+</script>
+{% endblock %}

@@ -32,6 +32,7 @@
                 {% endif %}
             </td>
             <td>
+                <a href="{{ url_for('target_detail', id=target.id) }}" class="btn btn-sm btn-info">详情</a>
                 <a href="{{ url_for('edit_target', id=target.id) }}" class="btn btn-sm btn-warning">编辑</a>
                 <a href="{{ url_for('delete_target', id=target.id) }}" class="btn btn-sm btn-danger">删除</a>
             </td>
