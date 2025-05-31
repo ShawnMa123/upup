@@ -1,4 +1,5 @@
 import json
+from functools import wraps
 from flask import Flask, render_template, redirect, url_for, request, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -25,6 +26,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
+    role = db.Column(db.String(20), default='user')  # 'admin' or 'user'
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -35,6 +37,16 @@ class User(UserMixin, db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# 管理员权限检查装饰器
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'admin':
+            flash('需要管理员权限', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # 数据库模型
 class MonitorTarget(db.Model):
@@ -331,12 +343,14 @@ def logout():
 # 监控目标管理
 @app.route('/targets')
 @login_required
+@admin_required
 def manage_targets():
     targets = MonitorTarget.query.all()
     return render_template('targets.html', targets=targets)
 
 @app.route('/target/add', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def add_target():
     if request.method == 'POST':
         name = request.form['name']
@@ -358,6 +372,7 @@ def add_target():
 
 @app.route('/target/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit_target(id):
     target = MonitorTarget.query.get(id)
     if not target:
@@ -370,7 +385,6 @@ def edit_target(id):
         target.interval = int(request.form['interval'])
         db.session.commit()
         return redirect(url_for('manage_targets'))
-    
     
     return render_template('edit_target.html', target=target)
 
@@ -411,6 +425,7 @@ def target_history(id):
 
 @app.route('/target/delete/<int:id>')
 @login_required
+@admin_required
 def delete_target(id):
     target = MonitorTarget.query.get(id)
     if target:
@@ -423,12 +438,14 @@ def delete_target(id):
 # 告警配置管理
 @app.route('/alerts')
 @login_required
+@admin_required
 def manage_alerts():
     alerts = AlertConfig.query.all()
     return render_template('alerts.html', alerts=alerts)
 
 @app.route('/alert/add', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def add_alert():
     if request.method == 'POST':
         name = request.form['name']
@@ -463,6 +480,7 @@ def add_alert():
 
 @app.route('/alert/delete/<int:id>')
 @login_required
+@admin_required
 def delete_alert(id):
     alert = AlertConfig.query.get(id)
     if alert:
@@ -471,18 +489,53 @@ def delete_alert(id):
         flash('告警配置已删除', 'success')
     return redirect(url_for('manage_alerts'))
 
+# 修改密码
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form['old_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if not current_user.check_password(old_password):
+            flash('原密码错误', 'danger')
+            return redirect(url_for('change_password'))
+        
+        if new_password != confirm_password:
+            flash('新密码和确认密码不一致', 'danger')
+            return redirect(url_for('change_password'))
+        
+        current_user.set_password(new_password)
+        db.session.commit()
+        flash('密码已成功更新', 'success')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('change_password.html')
+
+# 用户管理（仅管理员）
+@app.route('/users')
+@login_required
+@admin_required
+def manage_users():
+    users = User.query.all()
+    return render_template('users.html', users=users)
+
 # 在应用启动时创建admin用户（仅用于演示）
 def create_admin_user():
     admin = User.query.filter_by(username='admin').first()
     if not admin:
-        admin = User(username='admin')
+        admin = User(username='admin', role='admin')
         admin.set_password('admin123')
         db.session.add(admin)
         db.session.commit()
 
 if __name__ == '__main__':
-    # 创建数据库表
+    # 创建数据库表（开发环境先删除再创建）
     with app.app_context():
+        # 删除旧数据库
+        db.drop_all()
+        # 创建新数据库
         db.create_all()
         create_admin_user()
     app.run(debug=True)
