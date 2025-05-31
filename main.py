@@ -11,7 +11,10 @@ import time
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # 生产环境应使用更安全的随机密钥
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///monitor.db'
+import os
+# 从环境变量获取数据库路径，默认为monitor.db
+db_path = os.environ.get('DATABASE_PATH', 'monitor.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -553,11 +556,19 @@ def create_admin_user():
         db.session.commit()
 
 if __name__ == '__main__':
-    # 创建数据库表（开发环境先删除再创建）
     with app.app_context():
-        # 删除旧数据库
-        # db.drop_all()
-        # 创建新数据库
-        db.create_all()
-        create_admin_user()
-    app.run(debug=True)
+        # 从环境变量获取调试模式设置
+        DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+        
+        if DEBUG:
+            # 调试模式：重置数据库
+            db.drop_all()
+            db.create_all()
+            create_admin_user()
+        else:
+            # 生产环境：只创建不存在的表
+            db.create_all()
+    
+    # 运行应用
+    DEBUG_MODE = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=DEBUG_MODE, host='0.0.0.0')
