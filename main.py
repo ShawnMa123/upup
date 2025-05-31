@@ -555,20 +555,25 @@ def create_admin_user():
         db.session.add(admin)
         db.session.commit()
 
-if __name__ == '__main__':
-    with app.app_context():
-        # 从环境变量获取调试模式设置
-        DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-        
-        if DEBUG:
-            # 调试模式：重置数据库
-            db.drop_all()
-            db.create_all()
-            create_admin_user()
-        else:
-            # 生产环境：只创建不存在的表
-            db.create_all()
+# 确保数据库表已创建
+with app.app_context():
+    # 检查表是否存在
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
     
+    # 获取所有表名
+    existing_tables = inspector.get_table_names()
+    
+    # 需要创建的表
+    required_tables = ['user', 'monitor_target', 'monitor_log', 'alert_config']
+    
+    # 如果缺少任何表，则创建所有表
+    if not all(table in existing_tables for table in required_tables):
+        print("创建数据库表...")
+        db.create_all()
+        create_admin_user()
+
+if __name__ == '__main__':
     # 运行应用
     DEBUG_MODE = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     app.run(debug=DEBUG_MODE, host='0.0.0.0')
