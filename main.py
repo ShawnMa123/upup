@@ -1,4 +1,6 @@
-from flask import Flask, render_template, redirect, url_for, request
+from flask import Flask, render_template, redirect, url_for, request, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
@@ -6,10 +8,32 @@ from ping3 import ping
 import time
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'  # 生产环境应使用更安全的随机密钥
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///monitor.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# 初始化登录管理器
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# 用户模型
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # 数据库模型
 class MonitorTarget(db.Model):
@@ -154,13 +178,62 @@ def add_test():
     db.session.commit()
     return redirect(url_for('dashboard'))
 
+# 用户认证路由
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        # 检查用户名是否已存在
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('用户名已存在', 'danger')
+            return redirect(url_for('register'))
+        
+        # 创建新用户
+        new_user = User(username=username)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        
+        flash('注册成功，请登录', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        else:
+            flash('用户名或密码错误', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('您已成功登出', 'success')
+    return redirect(url_for('dashboard'))
+
 # 监控目标管理
 @app.route('/targets')
+@login_required
 def manage_targets():
     targets = MonitorTarget.query.all()
     return render_template('targets.html', targets=targets)
 
 @app.route('/target/add', methods=['GET', 'POST'])
+@login_required
 def add_target():
     if request.method == 'POST':
         name = request.form['name']
@@ -181,6 +254,7 @@ def add_target():
     return render_template('add_target.html')
 
 @app.route('/target/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
 def edit_target(id):
     target = MonitorTarget.query.get(id)
     if not target:
@@ -197,6 +271,7 @@ def edit_target(id):
     return render_template('edit_target.html', target=target)
 
 @app.route('/target/delete/<int:id>')
+@login_required
 def delete_target(id):
     target = MonitorTarget.query.get(id)
     if target:
@@ -206,7 +281,20 @@ def delete_target(id):
         db.session.commit()
     return redirect(url_for('manage_targets'))
 
+# 在应用启动时创建admin用户（仅用于演示）
+def create_admin_user():
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
+        admin = User(username='admin')
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+
 if __name__ == '__main__':
+    # 创建数据库表
+    with app.app_context():
+        db.create_all()
+        create_admin_user()
     # 创建数据库表
     with app.app_context():
         db.create_all()
