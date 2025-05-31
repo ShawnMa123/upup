@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data  # 持久化存储数据库文件
+    environment:
+      FLASK_ENV: production
+      DATABASE_PATH: /app/data/monitor.db
+    restart: unless-stopped

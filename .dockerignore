@@ -1,0 +1,25 @@
+# 忽略虚拟环境
+venv/
+
+# 忽略Python缓存文件
+__pycache__/
+
+# 忽略IDE设置
+.idea/
+.vscode/
+
+# 忽略Git相关
+.git/
+.gitignore
+
+# 忽略数据库文件
+*.db
+*.sqlite
+
+# 忽略日志文件
+*.log
+
+# 忽略Docker构建缓存
+.dockerignore
+Dockerfile
+docker-compose.yml
