@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>添加监控目标</h1>
+<form method="POST">
+    <div class="mb-3">
+        <label for="name" class="form-label">名称</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+    </div>
+    <div class="mb-3">
+        <label for="type" class="form-label">类型</label>
+        <select class="form-select" id="type" name="type" required>
+            <option value="http">HTTP/HTTPS</option>
+            <option value="tcp">TCP端口</option>
+            <option value="ping">Ping</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="target" class="form-label">目标</label>
+        <input type="text" class="form-control" id="target" name="target" required>
+        <div class="form-text">HTTP示例: https://example.com, TCP示例: example.com:80, Ping示例: example.com</div>
+    </div>
+    <div class="mb-3">
+        <label for="interval" class="form-label">监控间隔(秒)</label>
+        <input type="number" class="form-control" id="interval" name="interval" value="60" min="10" required>
+    </div>
+    <button type="submit" class="btn btn-primary">添加</button>
+    <a href="{{ url_for('manage_targets') }}" class="btn btn-secondary">取消</a>
+</form>
+{% endblock %}

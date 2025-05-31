@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>监控目标管理</h1>
+<a href="{{ url_for('add_target') }}" class="btn btn-primary mb-3">添加监控目标</a>
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>名称</th>
+            <th>类型</th>
+            <th>目标</th>
+            <th>间隔(秒)</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for target in targets %}
+        <tr>
+            <td>{{ target.name }}</td>
+            <td>{{ target.target_type | upper }}</td>
+            <td>{{ target.target }}</td>
+            <td>{{ target.interval }}</td>
+            <td>
+                {% if target.status == 'up' %}
+                <span class="badge bg-success">正常</span>
+                {% elif target.status == 'down' %}
+                <span class="badge bg-danger">故障</span>
+                {% else %}
+                <span class="badge bg-secondary">未知</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="#" class="btn btn-sm btn-warning">编辑</a>
+                <a href="{{ url_for('delete_target', id=target.id) }}" class="btn btn-sm btn-danger">删除</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6" class="text-center">暂无监控目标</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
