@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">服务状态监控</h1>
+    
+    <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>名称</th>
+                    <th>类型</th>
+                    <th>目标</th>
+                    <th>状态</th>
+                    <th>最后检查</th>
+                    <th>响应时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for target in targets %}
+                <tr class="status-{{ target.status }}">
+                    <td>{{ target.name }}</td>
+                    <td>{{ target.target_type | upper }}</td>
+                    <td>{{ target.target }}</td>
+                    <td>
+                        {% if target.status == 'up' %}
+                        <span class="badge bg-success">正常</span>
+                        {% elif target.status == 'down' %}
+                        <span class="badge bg-danger">故障</span>
+                        {% else %}
+                        <span class="badge bg-secondary">未知</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ target.last_checked | default('从未检查', true) }}</td>
+                    <td>
+                        {% if target.logs %}
+                            {% set last_log = target.logs|sort(attribute='timestamp', reverse=true)|first %}
+                            {{ last_log.response_time | round(2) if last_log.response_time else '' }} ms
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">暂无监控目标</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </table>
+{% endblock %}

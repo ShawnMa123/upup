@@ -1,0 +1,6 @@
+flask
+flask_sqlalchemy
+flask_migrate
+apscheduler
+requests
+ping3
