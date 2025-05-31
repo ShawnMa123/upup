@@ -1,25 +1,34 @@
-# 使用官方Python运行时作为基础镜像
-FROM python:3.9-slim
+# 第一阶段：构建环境
+FROM python:3.9-alpine as builder
+
+# 安装构建依赖
+RUN apk add --no-cache build-base libffi-dev
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制当前目录内容到容器的工作目录
-COPY . .
-
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# 复制依赖文件
+COPY requirements.txt .
 
 # 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# 暴露端口（Flask默认端口）
+# 第二阶段：运行环境
+FROM python:3.9-alpine
+
+# 从构建阶段复制已安装的依赖
+COPY --from=builder /install /usr/local
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制应用代码
+COPY . .
+
+# 暴露端口
 EXPOSE 5000
 
-# 定义环境变量
+# 设置环境变量
 ENV FLASK_APP=main.py
 ENV FLASK_ENV=production
 
