@@ -180,6 +180,22 @@ def add_target():
     
     return render_template('add_target.html')
 
+@app.route('/target/edit/<int:id>', methods=['GET', 'POST'])
+def edit_target(id):
+    target = MonitorTarget.query.get(id)
+    if not target:
+        return redirect(url_for('manage_targets'))
+    
+    if request.method == 'POST':
+        target.name = request.form['name']
+        target.target_type = request.form['type']
+        target.target = request.form['target']
+        target.interval = int(request.form['interval'])
+        db.session.commit()
+        return redirect(url_for('manage_targets'))
+    
+    return render_template('edit_target.html', target=target)
+
 @app.route('/target/delete/<int:id>')
 def delete_target(id):
     target = MonitorTarget.query.get(id)
