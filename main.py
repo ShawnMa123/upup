@@ -521,6 +521,28 @@ def manage_users():
     users = User.query.all()
     return render_template('users.html', users=users)
 
+@app.route('/user/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_user(id):
+    user = User.query.get(id)
+    if not user:
+        flash('用户不存在', 'danger')
+        return redirect(url_for('manage_users'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        role = request.form['role']
+        
+        # 更新用户信息
+        user.username = username
+        user.role = role
+        db.session.commit()
+        flash('用户信息已更新', 'success')
+        return redirect(url_for('manage_users'))
+    
+    return render_template('edit_user.html', user=user)
+
 # 在应用启动时创建admin用户（仅用于演示）
 def create_admin_user():
     admin = User.query.filter_by(username='admin').first()
@@ -534,7 +556,7 @@ if __name__ == '__main__':
     # 创建数据库表（开发环境先删除再创建）
     with app.app_context():
         # 删除旧数据库
-        db.drop_all()
+        # db.drop_all()
         # 创建新数据库
         db.create_all()
         create_admin_user()
