@@ -4,3 +4,4 @@ flask_migrate
 apscheduler
 requests
 ping3
+flask_login

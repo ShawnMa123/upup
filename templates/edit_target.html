@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>编辑监控目标</h1>
+<form method="POST">
+    <div class="mb-3">
+        <label for="name" class="form-label">名称</label>
+        <input type="text" class="form-control" id="name" name="name" value="{{ target.name }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="type" class="form-label">类型</label>
+        <select class="form-select" id="type" name="type" required>
+            <option value="http" {% if target.target_type=='http' %}selected{% endif %}>HTTP/HTTPS</option>
+            <option value="tcp" {% if target.target_type=='tcp' %}selected{% endif %}>TCP端口</option>
+            <option value="ping" {% if target.target_type=='ping' %}selected{% endif %}>Ping</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="target" class="form-label">目标</label>
+        <input type="text" class="form-control" id="target" name="target" value="{{ target.target }}" required>
+        <div class="form-text">HTTP示例: https://example.com, TCP示例: example.com:80, Ping示例: example.com</div>
+    </div>
+    <div class="mb-3">
+        <label for="interval" class="form-label">监控间隔(秒)</label>
+        <input type="number" class="form-control" id="interval" name="interval" value="{{ target.interval }}" min="10" required>
+    </div>
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a href="{{ url_for('manage_targets') }}" class="btn btn-secondary">取消</a>
+</form>
+{% endblock %}
