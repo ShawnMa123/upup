@@ -1,3 +1,4 @@
+import json
 from flask import Flask, render_template, redirect, url_for, request, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -53,6 +54,13 @@ class MonitorLog(db.Model):
     status = db.Column(db.String(20))
     response_time = db.Column(db.Float)
     message = db.Column(db.Text)
+
+# 告警配置模型
+class AlertConfig(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    alert_type = db.Column(db.String(20), nullable=False)  # email, webhook
+    config = db.Column(db.Text, nullable=False)  # JSON配置
 
 # 监控函数
 def check_http(target):
@@ -131,8 +139,103 @@ def perform_monitoring():
                 message=message
             )
             db.session.add(log)
+            
+            # 检查状态变化并触发告警
+            if target.status != status:
+                trigger_alerts(target, status, message)
         
         db.session.commit()
+
+# 告警触发函数
+def trigger_alerts(target, new_status, message):
+    # 获取所有告警配置
+    alert_configs = AlertConfig.query.all()
+    
+    for config in alert_configs:
+        if config.alert_type == 'email':
+            send_email_alert(config, target, new_status, message)
+        elif config.alert_type == 'webhook':
+            send_webhook_alert(config, target, new_status, message)
+
+# 邮件告警函数
+def send_email_alert(config, target, status, message):
+    import smtplib
+    from email.mime.text import MIMEText
+    import json
+    
+    try:
+        # 解析配置
+        config_data = json.loads(config.config)
+        smtp_server = config_data.get('smtp_server')
+        smtp_port = config_data.get('smtp_port', 587)
+        username = config_data.get('username')
+        password = config_data.get('password')
+        from_addr = config_data.get('from_addr')
+        to_addr = config_data.get('to_addr')
+        
+        if not all([smtp_server, username, password, from_addr, to_addr]):
+            return
+            
+        # 创建邮件内容
+        subject = f"服务告警: {target.name} 状态变为 {status}"
+        body = f"""
+        服务名称: {target.name}
+        服务类型: {target.target_type}
+        监控目标: {target.target}
+        当前状态: {status}
+        状态信息: {message}
+        发生时间: {db.func.current_timestamp()}
+        """
+        
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = from_addr
+        msg['To'] = to_addr
+        
+        # 发送邮件
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(username, password)
+            server.send_message(msg)
+            
+    except Exception as e:
+        print(f"邮件发送失败: {str(e)}")
+
+# Webhook告警函数
+def send_webhook_alert(config, target, status, message):
+    import requests
+    import json
+    
+    try:
+        # 解析配置
+        config_data = json.loads(config.config)
+        webhook_url = config_data.get('webhook_url')
+        
+        if not webhook_url:
+            return
+            
+        # 创建请求数据
+        payload = {
+            "event": "status_change",
+            "target_id": target.id,
+            "target_name": target.name,
+            "target_type": target.target_type,
+            "target": target.target,
+            "old_status": target.status,
+            "new_status": status,
+            "message": message,
+            "timestamp": str(db.func.current_timestamp())
+        }
+        
+        # 发送Webhook请求
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(webhook_url, data=json.dumps(payload), headers=headers, timeout=10)
+        
+        if response.status_code != 200:
+            print(f"Webhook调用失败: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        print(f"Webhook调用失败: {str(e)}")
 
 # 初始化调度器
 scheduler = BackgroundScheduler()
@@ -268,6 +371,7 @@ def edit_target(id):
         db.session.commit()
         return redirect(url_for('manage_targets'))
     
+    
     return render_template('edit_target.html', target=target)
 
 @app.route('/target/delete/<int:id>')
@@ -280,6 +384,57 @@ def delete_target(id):
         db.session.delete(target)
         db.session.commit()
     return redirect(url_for('manage_targets'))
+
+# 告警配置管理
+@app.route('/alerts')
+@login_required
+def manage_alerts():
+    alerts = AlertConfig.query.all()
+    return render_template('alerts.html', alerts=alerts)
+
+@app.route('/alert/add', methods=['GET', 'POST'])
+@login_required
+def add_alert():
+    if request.method == 'POST':
+        name = request.form['name']
+        alert_type = request.form['type']
+        config_data = {}
+        
+        if alert_type == 'email':
+            config_data = {
+                'smtp_server': request.form['smtp_server'],
+                'smtp_port': int(request.form['smtp_port']),
+                'username': request.form['username'],
+                'password': request.form['password'],
+                'from_addr': request.form['from_addr'],
+                'to_addr': request.form['to_addr']
+            }
+        elif alert_type == 'webhook':
+            config_data = {
+                'webhook_url': request.form['webhook_url']
+            }
+        
+        new_alert = AlertConfig(
+            name=name,
+            alert_type=alert_type,
+            config=json.dumps(config_data)
+        )
+        db.session.add(new_alert)
+        db.session.commit()
+        flash('告警配置添加成功', 'success')
+        return redirect(url_for('manage_alerts'))
+    
+    return render_template('add_alert.html')
+
+@app.route('/alert/delete/<int:id>')
+@login_required
+def delete_alert(id):
+    alert = AlertConfig.query.get(id)
+    if alert:
+        db.session.delete(alert)
+        db.session.commit()
+        flash('告警配置已删除', 'success')
+    return redirect(url_for('manage_alerts'))
 
 # 在应用启动时创建admin用户（仅用于演示）
 def create_admin_user():
@@ -295,7 +450,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         create_admin_user()
-    # 创建数据库表
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
