@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>编辑用户</h1>
+<form method="POST">
+    <div class="mb-3">
+        <label for="username" class="form-label">用户名</label>
+        <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="role" class="form-label">角色</label>
+        <select class="form-select" id="role" name="role">
+            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>管理员</option>
+            <option value="user" {% if user.role == 'user' %}selected{% endif %}>普通用户</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a href="{{ url_for('manage_users') }}" class="btn btn-secondary">取消</a>
+</form>
+{% endblock %}

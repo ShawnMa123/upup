@@ -30,6 +30,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('manage_alerts') }}">告警配置</a>
                     </li>
+                    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('manage_users') }}">用户管理</a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
             <div class="navbar-nav">
