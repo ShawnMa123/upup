@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>告警配置管理</h1>
+<a href="{{ url_for('add_alert') }}" class="btn btn-primary mb-3">添加告警配置</a>
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>名称</th>
+            <th>类型</th>
+            <th>配置摘要</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in alerts %}
+        <tr>
+            <td>{{ alert.name }}</td>
+            <td>{{ alert.alert_type | upper }}</td>
+            <td>
+                {% if alert.alert_type == 'email' %}
+                邮件告警
+                {% elif alert.alert_type == 'webhook' %}
+                Webhook告警
+                {% endif %}
+            </td>
+            <td>
+                <a href="#" class="btn btn-sm btn-warning">编辑</a>
+                <a href="{{ url_for('delete_alert', id=alert.id) }}" class="btn btn-sm btn-danger">删除</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4" class="text-center">暂无告警配置</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
